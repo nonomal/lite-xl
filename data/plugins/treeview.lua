@@ -772,6 +772,19 @@ command.add(
   end
 })
 
+local function create_new_file(filename)
+  core.log(filename)
+  local file = io.open(filename, "a+")
+  file:write("")
+  file:close()
+  core.root_view:open_doc(core.open_doc(filename))
+  core.log("Created %s", filename)
+end
+
+local function create_new_folder(dir_path)
+  common.mkdirp(dir_path)
+  core.log("Created %s", dir_path)
+end
 
 command.add(
   function()
@@ -853,18 +866,23 @@ command.add(
   ["treeview:new-file"] = function(item)
     local text
     if not is_project_folder(item.abs_filename) then
-      text = item.filename .. PATHSEP
+      if item.type == "dir" then
+        text = item.filename .. PATHSEP
+      elseif item.type == "file" then
+        local parent_dir = common.dirname(item.filename)
+        text = parent_dir and parent_dir .. PATHSEP
+      end
     end
     core.command_view:enter("Filename", {
       text = text,
       submit = function(filename)
         local doc_filename = item.dir_name .. PATHSEP .. filename
-        core.log(doc_filename)
-        local file = io.open(doc_filename, "a+")
-        file:write("")
-        file:close()
-        view:open_doc(doc_filename)
-        core.log("Created %s", doc_filename)
+        local lastChar = filename:sub(#filename)
+        if lastChar == "/" or lastChar == "\\" then
+          create_new_folder(filename)
+        else
+          create_new_file(doc_filename)
+        end
       end,
       suggest = function(text)
         return common.path_suggest(text, item.dir_name)
@@ -875,14 +893,18 @@ command.add(
   ["treeview:new-folder"] = function(item)
     local text
     if not is_project_folder(item.abs_filename) then
-      text = item.filename .. PATHSEP
+      if item.type == "dir" then
+        text = item.filename .. PATHSEP
+      elseif item.type == "file" then
+        local parent_dir = common.dirname(item.filename)
+        text = parent_dir and parent_dir .. PATHSEP
+      end
     end
     core.command_view:enter("Folder Name", {
       text = text,
       submit = function(filename)
         local dir_path = item.dir_name .. PATHSEP .. filename
-        common.mkdirp(dir_path)
-        core.log("Created %s", dir_path)
+        create_new_folder(dir_path)
       end,
       suggest = function(text)
         return common.path_suggest(text, item.dir_name)
